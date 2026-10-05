@@ -54,6 +54,26 @@ describe('OidcService', () => {
     expect(result.codeChallenge).toBeTruthy();
   });
 
+  it('derives the S256 challenge without crypto.subtle, which plain-HTTP origins lack', async () => {
+    const {service} = createService();
+    // RFC 7636, Appendix B: these random octets encode to its example code verifier.
+    const rfc7636Octets = [
+      116, 24, 223, 180, 151, 153, 224, 37, 79, 250, 96, 125, 216, 173, 187, 186,
+      22, 212, 37, 77, 105, 214, 191, 240, 91, 88, 5, 88, 83, 132, 141, 121,
+    ];
+    vi.stubGlobal('crypto', {
+      getRandomValues: (array: Uint8Array) => {
+        array.set(rfc7636Octets);
+        return array;
+      },
+    });
+
+    const result = await service.generatePkce();
+
+    expect(result.codeVerifier).toBe('dBjftJeZ4CVP-mB92K27uhbUJU1p1r_wW1gFWFOEjXk');
+    expect(result.codeChallenge).toBe('E9Melhoa2OwvFrEMTJguCHaoeK1t8URWbuGJSstw-cM');
+  });
+
   it('generates random URL-safe strings', () => {
     const {service} = createService();
     vi.stubGlobal('crypto', {

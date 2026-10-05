@@ -3,6 +3,7 @@ import {HttpClient} from '@angular/common/http';
 import {firstValueFrom, Observable} from 'rxjs';
 import {API_CONFIG} from '../config/api-config';
 import {AppSettingsService} from '../../shared/service/app-settings.service';
+import {sha256} from './sha256';
 
 interface OidcPkceState {
   codeVerifier: string;
@@ -28,9 +29,13 @@ export class OidcService {
     crypto.getRandomValues(array);
     const codeVerifier = this.base64UrlEncode(array);
 
-    const encoder = new TextEncoder();
-    const hash = await crypto.subtle.digest('SHA-256', encoder.encode(codeVerifier));
-    const codeChallenge = this.base64UrlEncode(new Uint8Array(hash));
+    const verifierBytes = new TextEncoder().encode(codeVerifier);
+    // crypto.subtle exists only in secure contexts (HTTPS, or localhost), so it is
+    // missing when Grimmory is opened over plain HTTP at a LAN address.
+    const hash = crypto.subtle
+      ? new Uint8Array(await crypto.subtle.digest('SHA-256', verifierBytes))
+      : sha256(verifierBytes);
+    const codeChallenge = this.base64UrlEncode(hash);
 
     return {codeVerifier, codeChallenge};
   }
